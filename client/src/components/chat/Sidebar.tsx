@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { JoinRoomModal } from "./JoinRoomModal";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { RoomWithMembers } from "@shared/schema";
+import type { RoomWithMembers, Room } from "@shared/schema";
 import { Sun, Moon, Settings, Plus, Hash, Lock, Users, LogOut } from "lucide-react";
 
 interface SidebarProps {
@@ -22,27 +22,49 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
   const { toast } = useToast();
   const [showJoinModal, setShowJoinModal] = useState(false);
 
-  const { data: rooms = [], isLoading } = useQuery<RoomWithMembers[]>({
+  const { data: userRooms = [], isLoading: isLoadingUserRooms } = useQuery<RoomWithMembers[]>({
     queryKey: ["/api/rooms"],
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    enabled: !!user,
+  });
+
+  const { data: availableRooms = [], isLoading: isLoadingAvailableRooms } = useQuery<Room[]>({
+    queryKey: ["/api/rooms/public"],
+    enabled: !!user,
+  });
+
+  const isLoading = isLoadingUserRooms || isLoadingAvailableRooms;
+
+  const joinRoomMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      await apiRequest("POST", `/api/rooms/${roomId}/join`);
+    },
+    onSuccess: () => {
+      // Invalidate both queries to refresh the room lists
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms/public"] });
+    },
+    onError: (error: any) => {
       toast({
-        title: "Error",
-        description: "Failed to load rooms",
+        title: "Failed to join room",
+        description: error.message || "Could not join room",
         variant: "destructive",
       });
     },
   });
+
+  const handleJoinRoom = async (roomId: string, roomName: string) => {
+    try {
+      await joinRoomMutation.mutateAsync(roomId);
+      toast({
+        title: "Joined room",
+        description: `Successfully joined ${roomName}`,
+      });
+      // Select the room after joining
+      onRoomSelect(roomId);
+    } catch (error) {
+      // Error is handled by the mutation
+    }
+  };
 
   const handleLogout = () => {
     window.location.href = "/api/logout";
@@ -92,9 +114,10 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
         {/* Rooms Section */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
+            {/* Your Rooms */}
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                Rooms
+                Your Rooms
               </h3>
               <Button
                 variant="ghost"
@@ -106,35 +129,72 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
               </Button>
             </div>
             
-            <div className="space-y-1">
-              {rooms.map((room) => (
-                <div
-                  key={room.id}
-                  onClick={() => onRoomSelect(room.id)}
-                  className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
-                    selectedRoomId === room.id
-                      ? "bg-blue-600 text-white"
-                      : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {room.isPrivate ? (
-                    <Lock className="h-4 w-4 mr-2" />
-                  ) : (
-                    <Hash className="h-4 w-4 mr-2" />
-                  )}
-                  <span className="font-medium text-sm truncate flex-1">{room.name}</span>
-                  {room.unreadCount && room.unreadCount > 0 && (
-                    <span className={`text-xs px-2 py-1 rounded-full ${
+            <div className="space-y-1 mb-6">
+              {userRooms.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                  No rooms joined yet
+                </p>
+              ) : (
+                userRooms.map((room) => (
+                  <div
+                    key={room.id}
+                    onClick={() => onRoomSelect(room.id)}
+                    className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
                       selectedRoomId === room.id
-                        ? "bg-white bg-opacity-20"
-                        : "bg-red-500 text-white"
-                    }`}>
-                      {room.unreadCount > 99 ? "99+" : room.unreadCount}
-                    </span>
-                  )}
-                </div>
-              ))}
+                        ? "bg-blue-600 text-white"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    {room.isPrivate ? (
+                      <Lock className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Hash className="h-4 w-4 mr-2" />
+                    )}
+                    <span className="font-medium text-sm truncate flex-1">{room.name}</span>
+                    {room.unreadCount && room.unreadCount > 0 && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        selectedRoomId === room.id
+                          ? "bg-white bg-opacity-20"
+                          : "bg-red-500 text-white"
+                      }`}>
+                        {room.unreadCount > 99 ? "99+" : room.unreadCount}
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
+
+            {/* Available Public Rooms */}
+            {availableRooms.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                    Available to Join
+                  </h3>
+                </div>
+                
+                <div className="space-y-1">
+                  {availableRooms.map((room) => (
+                    <div
+                      key={room.id}
+                      onClick={() => handleJoinRoom(room.id, room.name)}
+                      className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-dashed border-gray-300 dark:border-gray-600 ${
+                        joinRoomMutation.isPending ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      <Hash className="h-4 w-4 mr-2" />
+                      <span className="font-medium text-sm truncate flex-1">{room.name}</span>
+                      {joinRoomMutation.isPending ? (
+                        <div className="animate-spin h-3 w-3 border border-gray-400 border-t-transparent rounded-full" />
+                      ) : (
+                        <Plus className="h-3 w-3 text-gray-400" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

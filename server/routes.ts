@@ -52,11 +52,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/rooms', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const rooms = await storage.getUserRooms(userId);
-      res.json(rooms);
+      const userRooms = await storage.getUserRooms(userId);
+      res.json(userRooms);
     } catch (error) {
       console.error("Error fetching rooms:", error);
       res.status(500).json({ message: "Failed to fetch rooms" });
+    }
+  });
+
+  app.get('/api/rooms/public', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const publicRooms = await storage.getAvailablePublicRooms(userId);
+      res.json(publicRooms);
+    } catch (error) {
+      console.error("Error fetching public rooms:", error);
+      res.status(500).json({ message: "Failed to fetch public rooms" });
     }
   });
 

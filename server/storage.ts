@@ -15,7 +15,7 @@ import {
   type MessageWithUser,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, count, sql } from "drizzle-orm";
+import { eq, desc, and, count, sql, notInArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -30,6 +30,7 @@ export interface IStorage {
   getRoomWithMembers(id: string): Promise<RoomWithMembers | undefined>;
   getUserRooms(userId: string): Promise<RoomWithMembers[]>;
   getPublicRooms(): Promise<Room[]>;
+  getAvailablePublicRooms(userId: string): Promise<Room[]>;
   
   // Room member operations
   joinRoom(roomMember: InsertRoomMember): Promise<RoomMember>;
@@ -129,6 +130,32 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(rooms)
       .where(eq(rooms.isPrivate, false));
+  }
+
+  async getAvailablePublicRooms(userId: string): Promise<Room[]> {
+    // Get public rooms that the user is NOT already a member of
+    const userRoomIds = await db
+      .select({ roomId: roomMembers.roomId })
+      .from(roomMembers)
+      .where(eq(roomMembers.userId, userId));
+    
+    const userRoomIdList = userRoomIds.map(r => r.roomId);
+    
+    if (userRoomIdList.length === 0) {
+      // User is not in any rooms, return all public rooms
+      return await this.getPublicRooms();
+    }
+    
+    // Return public rooms excluding ones user is already in
+    return await db
+      .select()
+      .from(rooms)
+      .where(
+        and(
+          eq(rooms.isPrivate, false),
+          notInArray(rooms.id, userRoomIdList)
+        )
+      );
   }
 
   // Room member operations
