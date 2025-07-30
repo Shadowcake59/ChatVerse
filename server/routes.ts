@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { insertRoomSchema, insertMessageSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -36,17 +36,12 @@ function broadcastToRoom(roomId: string, message: any, excludeSocket?: WebSocket
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
-  await setupAuth(app);
+  setupAuth(app);
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      res.json(user);
+      res.json(req.user);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -56,7 +51,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Room routes
   app.get('/api/rooms', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const rooms = await storage.getUserRooms(userId);
       res.json(rooms);
     } catch (error) {
@@ -77,7 +72,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/rooms', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const roomData = insertRoomSchema.parse({
         ...req.body,
         createdBy: userId,
@@ -103,7 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/rooms/:roomId/join', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { roomId } = req.params;
       
       const room = await storage.getRoom(roomId);
@@ -123,7 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'user_joined',
           data: {
             user,
-            message: `${user.firstName || user.email} joined the room`,
+            message: `${user.firstName || user.username} joined the room`,
           }
         });
       }
@@ -137,7 +132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/rooms/:roomId/leave', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { roomId } = req.params;
       
       await storage.leaveRoom(roomId, userId);
@@ -149,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'user_left',
           data: {
             user,
-            message: `${user.firstName || user.email} left the room`,
+            message: `${user.firstName || user.username} left the room`,
           }
         });
       }

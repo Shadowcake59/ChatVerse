@@ -1,8 +1,8 @@
-# ChatApp - Real-time Chat Application
+# Replit Configuration
 
 ## Overview
 
-This is a modern real-time chat application built with a full-stack TypeScript architecture. The application features multiple chat rooms, real-time messaging via WebSockets, user authentication through Replit Auth, and a responsive UI built with React and shadcn/ui components.
+This is a modern chat application built with a full-stack TypeScript architecture. The application features real-time messaging using WebSockets, user authentication with Passport.js, and a responsive React frontend built with shadcn/ui components and Tailwind CSS.
 
 ## User Preferences
 
@@ -10,118 +10,101 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite for fast development and optimized builds
-- **UI Library**: shadcn/ui components built on Radix UI primitives
-- **Styling**: Tailwind CSS with CSS variables for theming
-- **State Management**: TanStack Query (React Query) for server state
-- **Routing**: Wouter for lightweight client-side routing
-- **Theme Support**: Light/dark mode with persistent localStorage
+The application follows a monorepo structure with clear separation between client, server, and shared code:
 
-### Backend Architecture
-- **Runtime**: Node.js with Express.js
-- **Language**: TypeScript with ES modules
-- **Real-time Communication**: WebSocket Server (ws library)
-- **Authentication**: Replit Auth with OpenID Connect
-- **Session Management**: Express sessions with PostgreSQL storage
-
-### Database Layer
-- **Database**: PostgreSQL (configured for Neon serverless)
-- **ORM**: Drizzle ORM with migrations
-- **Schema Validation**: Zod schemas for type-safe data validation
+- **Frontend**: React with TypeScript, Vite for building and development
+- **Backend**: Express.js server with TypeScript
+- **Database**: PostgreSQL with Drizzle ORM
+- **Authentication**: Passport.js with local strategy and session-based auth
+- **Real-time Communication**: WebSocket implementation for chat functionality
+- **UI Framework**: shadcn/ui components with Radix UI primitives and Tailwind CSS
 
 ## Key Components
 
-### Authentication System
-- Replit Auth integration with OpenID Connect
-- Session-based authentication with PostgreSQL session store
-- Automatic user profile creation and management
-- Protected routes with authentication middleware
+### Frontend Architecture
+- **React with TypeScript**: Modern React using functional components and hooks
+- **Vite**: Fast development server and build tool with hot module replacement
+- **TanStack Query**: Data fetching and caching for API calls
+- **Wouter**: Lightweight client-side routing
+- **shadcn/ui**: Pre-built accessible UI components based on Radix UI
+- **Tailwind CSS**: Utility-first CSS framework with custom theming
+- **Theme System**: Light/dark mode support with context-based theme switching
 
-### Real-time Chat System
-- WebSocket server for instant messaging
-- Room-based chat with join/leave functionality
-- Typing indicators and user presence
-- Message history with pagination
-- Profanity filtering and content moderation
+### Backend Architecture
+- **Express.js**: Web framework handling HTTP requests and WebSocket upgrades
+- **TypeScript**: Strongly typed backend code
+- **Passport.js**: Authentication middleware with local strategy
+- **Session Management**: PostgreSQL-backed session storage using connect-pg-simple
+- **WebSocket Server**: Real-time bidirectional communication for chat features
+- **Password Security**: Scrypt-based password hashing with salt
 
-### User Interface
-- Responsive three-panel layout (sidebar, main chat, users list)
-- Mobile-optimized with collapsible panels
-- Rich message rendering with image support
-- Typing indicators and connection status
-- Theme switching with system preference detection
-
-### Data Models
-- **Users**: Profile management with status tracking
-- **Rooms**: Public/private chat rooms with member management
-- **Messages**: Text and image messages with timestamps
-- **Room Members**: Join tracking with last read timestamps
+### Database Design
+- **Drizzle ORM**: Type-safe database queries and migrations
+- **PostgreSQL**: Primary database using Neon serverless
+- **Schema Structure**:
+  - `users`: User accounts with authentication details
+  - `rooms`: Chat rooms (public/private)
+  - `messages`: Chat messages with user associations
+  - `room_members`: Many-to-many relationship between users and rooms
+  - `sessions`: Server-side session storage
 
 ## Data Flow
 
 ### Authentication Flow
-1. User accesses the application
-2. Redirected to Replit Auth if not authenticated
-3. OAuth flow creates/updates user profile
-4. Session established with persistent storage
-5. User redirected to main chat interface
+1. User submits login credentials via frontend form
+2. Passport.js validates credentials against database
+3. Session created and stored in PostgreSQL
+4. Frontend receives authentication status and user data
+5. Protected routes require valid session
 
-### Messaging Flow
-1. User connects to WebSocket server
-2. Authentication verified via session
-3. User joins selected chat room
-4. Messages broadcast to all room members
-5. Message history loaded from database
-6. Typing indicators shared in real-time
+### Real-time Chat Flow
+1. WebSocket connection established after authentication
+2. User joins specific chat rooms via WebSocket messages
+3. Messages broadcast to all room members in real-time
+4. Message persistence handled through database storage
+5. Typing indicators and online status managed via WebSocket events
 
-### Room Management
-1. Users can create public/private rooms
-2. Room membership tracked in database
-3. Real-time user list updates
-4. Automatic cleanup of inactive connections
+### Data Fetching
+1. Frontend uses TanStack Query for HTTP requests
+2. Automatic error handling and retry logic
+3. Optimistic updates for better user experience
+4. Cache invalidation on mutations
 
 ## External Dependencies
 
 ### Core Dependencies
-- **@neondatabase/serverless**: Serverless PostgreSQL client
+- **@neondatabase/serverless**: Neon PostgreSQL database connection
+- **@tanstack/react-query**: Data fetching and state management
+- **@radix-ui/***: Accessible UI component primitives
 - **drizzle-orm**: Type-safe database ORM
-- **express**: Web application framework
-- **ws**: WebSocket server implementation
-- **openid-client**: OpenID Connect authentication
-- **@tanstack/react-query**: Server state management
+- **passport**: Authentication middleware
+- **ws**: WebSocket implementation
+- **express-session**: Session management
+- **zod**: Runtime type validation
 
-### UI Dependencies
-- **@radix-ui/***: Accessible UI primitives
-- **tailwindcss**: Utility-first CSS framework
-- **wouter**: Lightweight routing
-- **date-fns**: Date manipulation utilities
-
-### Development Tools
-- **vite**: Build tool and dev server
+### Development Dependencies
+- **vite**: Build tool and development server
 - **typescript**: Type checking and compilation
-- **tsx**: TypeScript execution for development
+- **tailwindcss**: CSS framework
+- **esbuild**: Fast JavaScript bundler for production
 
 ## Deployment Strategy
 
-### Development
-- Vite dev server for frontend with HMR
-- tsx for backend TypeScript execution
-- Database migrations via Drizzle Kit
-- Environment variables for database connection
-
-### Production Build
-1. Frontend built with Vite to static assets
-2. Backend compiled with esbuild to single bundle
-3. Assets served statically by Express
-4. Database schema deployed via migrations
-5. WebSocket server runs alongside HTTP server
+### Build Process
+1. Frontend built using Vite into `dist/public` directory
+2. Backend compiled with esbuild for Node.js production
+3. Static assets served by Express in production
+4. Single deployment artifact containing both frontend and backend
 
 ### Environment Configuration
-- **DATABASE_URL**: PostgreSQL connection string
-- **SESSION_SECRET**: Session encryption key  
-- **REPL_ID**: Replit application identifier
-- **ISSUER_URL**: OpenID Connect issuer endpoint
+- **Development**: Vite dev server with Express backend
+- **Production**: Express serves both API and static assets
+- **Database**: PostgreSQL connection via `DATABASE_URL` environment variable
+- **Sessions**: Configurable session secret for security
 
-The application is designed to run seamlessly on Replit's infrastructure while being portable to other deployment platforms with minimal configuration changes.
+### Key Environment Variables
+- `DATABASE_URL`: PostgreSQL connection string
+- `SESSION_SECRET`: Secret key for session encryption
+- `NODE_ENV`: Environment mode (development/production)
+
+The application is designed to run on platforms like Replit with minimal configuration, requiring only a PostgreSQL database and basic environment variables.
