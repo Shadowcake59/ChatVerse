@@ -12,8 +12,22 @@ interface SocketUser {
   socket: WebSocket;
 }
 
-const connectedUsers = new Map<string, SocketUser>();
+const connectedUsers = new Map<WebSocket, SocketUser>();
 const roomSockets = new Map<string, Set<WebSocket>>();
+
+// Broadcast to all connected users
+function broadcastToAll(message: any, excludeSocket?: WebSocket) {
+  connectedUsers.forEach((user, socket) => {
+    if (socket !== excludeSocket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(message));
+    }
+  });
+}
+
+// Get all online users
+function getOnlineUsers(): string[] {
+  return Array.from(new Set(Array.from(connectedUsers.values()).map(user => user.userId)));
+}
 
 // Profanity filter - simple implementation
 const inappropriateWords = ["badword1", "badword2", "spam", "hate"];
@@ -208,19 +222,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case 'authenticate': {
             const { userId } = payload;
             if (userId) {
-              connectedUsers.set(ws as any, { userId, socket: ws });
+              connectedUsers.set(ws, { userId, socket: ws });
               await storage.updateUserStatus(userId, 'online');
               
+              // Send authentication confirmation
               ws.send(JSON.stringify({
                 type: 'authenticated',
                 data: { success: true }
+              }));
+              
+              // Get user data and broadcast status change
+              const user = await storage.getUser(userId);
+              if (user) {
+                broadcastToAll({
+                  type: 'user_status_changed',
+                  data: { user, status: 'online' }
+                }, ws);
+              }
+              
+              // Send current online users to the newly connected user
+              const onlineUserIds = getOnlineUsers();
+              const onlineUsersData = await Promise.all(
+                onlineUserIds.map(id => storage.getUser(id))
+              );
+              
+              ws.send(JSON.stringify({
+                type: 'online_users',
+                data: { users: onlineUsersData.filter(Boolean) }
               }));
             }
             break;
           }
           
           case 'join_room': {
-            const user = connectedUsers.get(ws as any);
+            const user = connectedUsers.get(ws);
             if (!user) return;
             
             const { roomId } = payload;
@@ -251,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           case 'send_message': {
-            const user = connectedUsers.get(ws as any);
+            const user = connectedUsers.get(ws);
             if (!user || !user.roomId) return;
             
             const { content, type: messageType = 'text', imageUrl } = payload;
@@ -284,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           case 'typing_start': {
-            const user = connectedUsers.get(ws as any);
+            const user = connectedUsers.get(ws);
             if (!user || !user.roomId) return;
             
             await storage.updateTypingStatus(user.roomId, user.userId, true);
@@ -297,7 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           case 'typing_stop': {
-            const user = connectedUsers.get(ws as any);
+            const user = connectedUsers.get(ws);
             if (!user || !user.roomId) return;
             
             await storage.updateTypingStatus(user.roomId, user.userId, false);
@@ -319,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     ws.on('close', async () => {
-      const user = connectedUsers.get(ws as any);
+      const user = connectedUsers.get(ws);
       if (user) {
         await storage.updateUserStatus(user.userId, 'offline');
         
@@ -337,7 +372,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        connectedUsers.delete(ws as any);
+        // Get user data and broadcast status change
+        const userData = await storage.getUser(user.userId);
+        if (userData) {
+          broadcastToAll({
+            type: 'user_status_changed',
+            data: { user: userData, status: 'offline' }
+          });
+        }
+        
+        connectedUsers.delete(ws);
       }
     });
   });

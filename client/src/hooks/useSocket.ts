@@ -42,9 +42,14 @@ export function useSocket(roomId?: string): UseSocketReturn {
     socketRef.current = socket;
 
     socket.onopen = () => {
+      console.log('WebSocket connected');
       setIsConnected(true);
-      // Authenticate with user ID
-      sendMessage('authenticate', { userId: user.id });
+      
+      // Authenticate with user ID - need to send directly since sendMessage uses the ref
+      socket.send(JSON.stringify({ 
+        type: 'authenticate', 
+        payload: { userId: user.id } 
+      }));
       
       toast({
         title: "Connected",
@@ -59,6 +64,24 @@ export function useSocket(roomId?: string): UseSocketReturn {
         switch (message.type) {
           case 'authenticated':
             console.log('Authenticated successfully');
+            break;
+            
+          case 'online_users':
+            setOnlineUsers(message.data.users || []);
+            break;
+            
+          case 'user_status_changed':
+            setOnlineUsers(prev => {
+              if (message.data.status === 'online') {
+                // Add user if not already in list
+                return prev.some(u => u.id === message.data.user.id) 
+                  ? prev 
+                  : [...prev, message.data.user];
+              } else {
+                // Remove user from online list
+                return prev.filter(u => u.id !== message.data.user.id);
+              }
+            });
             break;
             
           case 'new_message':
