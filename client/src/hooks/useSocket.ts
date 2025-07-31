@@ -18,7 +18,8 @@ interface UseSocketReturn {
 }
 
 export function useSocket(roomId?: string): UseSocketReturn {
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
+  const isAuthenticated = !!user;
   const { toast } = useToast();
   const socketRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -36,8 +37,9 @@ export function useSocket(roomId?: string): UseSocketReturn {
     if (!isAuthenticated || !user) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${protocol}//${window.location.host}/api/ws`;
     
+    console.log('Attempting WebSocket connection to:', wsUrl);
     const socket = new WebSocket(wsUrl);
     socketRef.current = socket;
 
@@ -157,6 +159,7 @@ export function useSocket(roomId?: string): UseSocketReturn {
 
     socket.onerror = (error) => {
       console.error('WebSocket error:', error);
+      console.error('WebSocket URL was:', wsUrl);
       toast({
         title: "Connection Error",
         description: "Failed to connect to chat server",

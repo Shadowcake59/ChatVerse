@@ -208,10 +208,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // WebSocket server setup
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const wss = new WebSocketServer({ server: httpServer, path: '/api/ws' });
 
   wss.on('connection', (ws, req) => {
-    console.log('New WebSocket connection');
+    console.log('New WebSocket connection established from:', req.socket.remoteAddress);
     
     ws.on('message', async (data) => {
       try {
