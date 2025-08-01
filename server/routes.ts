@@ -205,6 +205,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // File upload endpoint for images
+  app.post('/api/upload/image', isAuthenticated, async (req: any, res) => {
+    try {
+      const { imageData, fileName } = req.body;
+      
+      if (!imageData || !fileName) {
+        return res.status(400).json({ message: "Image data and filename are required" });
+      }
+
+      // Simple base64 image storage (in a real app, you'd use cloud storage)
+      // For demo purposes, we'll return the data URL directly
+      const imageUrl = imageData; // The base64 data URL
+      
+      res.json({ imageUrl });
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      res.status(500).json({ message: "Failed to upload image" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // WebSocket server setup
