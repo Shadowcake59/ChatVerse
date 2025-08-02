@@ -46,7 +46,7 @@ export const rooms = pgTable("rooms", {
   description: text("description"),
   isPrivate: boolean("is_private").default(false),
   isDefault: boolean("is_default").default(false),
-  createdBy: varchar("created_by").references(() => users.id),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
   lastActivity: timestamp("last_activity").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
