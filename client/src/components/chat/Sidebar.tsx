@@ -130,6 +130,9 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
         const remainingRooms = userRooms.filter(r => r.id !== deleteRoomId);
         if (remainingRooms.length > 0) {
           onRoomSelect(remainingRooms[0].id);
+        } else {
+          // No rooms left, clear selection
+          onRoomSelect("");
         }
       }
     } finally {

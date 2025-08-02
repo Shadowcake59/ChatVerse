@@ -61,7 +61,7 @@ export default function Home() {
   });
 
   const handleRoomSelect = (roomId: string) => {
-    setSelectedRoomId(roomId);
+    setSelectedRoomId(roomId || undefined);
     setShowSidebar(false); // Hide sidebar on mobile when room is selected
   };
 
