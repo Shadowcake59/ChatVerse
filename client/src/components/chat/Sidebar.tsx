@@ -6,9 +6,37 @@ import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { JoinRoomModal } from "./JoinRoomModal";
+import { SettingsMenu } from "./SettingsMenu";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { RoomWithMembers, Room } from "@shared/schema";
-import { Sun, Moon, Settings, Plus, Hash, Lock, Users, LogOut } from "lucide-react";
+import { 
+  Sun, 
+  Moon, 
+  Settings, 
+  Plus, 
+  Hash, 
+  Lock, 
+  Users, 
+  LogOut, 
+  Trash2,
+  MoreVertical
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface SidebarProps {
   selectedRoomId?: string;
@@ -21,6 +49,8 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [deleteRoomId, setDeleteRoomId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: userRooms = [], isLoading: isLoadingUserRooms } = useQuery<RoomWithMembers[]>({
     queryKey: ["/api/rooms"],
@@ -52,6 +82,28 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
     },
   });
 
+  const deleteRoomMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      const response = await apiRequest("DELETE", `/api/rooms/${roomId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms/public"] });
+      toast({
+        title: "Room deleted",
+        description: "Room has been permanently deleted.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete failed",
+        description: error.message || "Failed to delete room",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleJoinRoom = async (roomId: string, roomName: string) => {
     try {
       await joinRoomMutation.mutateAsync(roomId);
@@ -63,6 +115,26 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
       onRoomSelect(roomId);
     } catch (error) {
       // Error is handled by the mutation
+    }
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!deleteRoomId) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteRoomMutation.mutateAsync(deleteRoomId);
+      // If the deleted room was selected, clear selection
+      if (selectedRoomId === deleteRoomId) {
+        // Find another room to select or clear selection
+        const remainingRooms = userRooms.filter(r => r.id !== deleteRoomId);
+        if (remainingRooms.length > 0) {
+          onRoomSelect(remainingRooms[0].id);
+        }
+      }
+    } finally {
+      setIsDeleting(false);
+      setDeleteRoomId(null);
     }
   };
 
@@ -100,13 +172,7 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
                   <Sun className="h-4 w-4 text-yellow-500" />
                 )}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <Settings className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-              </Button>
+              <SettingsMenu user={user} />
             </div>
           </div>
         </div>
@@ -138,27 +204,60 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
                 userRooms.map((room) => (
                   <div
                     key={room.id}
-                    onClick={() => onRoomSelect(room.id)}
-                    className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
+                    className={`flex items-center p-2 rounded-lg transition-colors group ${
                       selectedRoomId === room.id
                         ? "bg-blue-600 text-white"
                         : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                     }`}
                   >
-                    {room.isPrivate ? (
-                      <Lock className="h-4 w-4 mr-2" />
-                    ) : (
-                      <Hash className="h-4 w-4 mr-2" />
-                    )}
-                    <span className="font-medium text-sm truncate flex-1">{room.name}</span>
-                    {room.unreadCount && room.unreadCount > 0 && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        selectedRoomId === room.id
-                          ? "bg-white bg-opacity-20"
-                          : "bg-red-500 text-white"
-                      }`}>
-                        {room.unreadCount > 99 ? "99+" : room.unreadCount}
-                      </span>
+                    <div 
+                      onClick={() => onRoomSelect(room.id)}
+                      className="flex items-center flex-1 cursor-pointer"
+                    >
+                      {room.isPrivate ? (
+                        <Lock className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Hash className="h-4 w-4 mr-2" />
+                      )}
+                      <span className="font-medium text-sm truncate flex-1">{room.name}</span>
+                      {room.unreadCount && room.unreadCount > 0 && (
+                        <span className={`text-xs px-2 py-1 rounded-full mr-2 ${
+                          selectedRoomId === room.id
+                            ? "bg-white bg-opacity-20"
+                            : "bg-red-500 text-white"
+                        }`}>
+                          {room.unreadCount > 99 ? "99+" : room.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Show delete button for room creators */}
+                    {room.createdBy === user?.id && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity ${
+                              selectedRoomId === room.id 
+                                ? "hover:bg-white hover:bg-opacity-20 text-white" 
+                                : "hover:bg-gray-200 dark:hover:bg-gray-600"
+                            }`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={() => setDeleteRoomId(room.id)}
+                            className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete Room
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
                 ))

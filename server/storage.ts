@@ -23,6 +23,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserStatus(userId: string, status: "online" | "away" | "offline"): Promise<void>;
+  deleteUser(userId: string): Promise<void>;
   
   // Room operations
   createRoom(room: InsertRoom): Promise<Room>;
@@ -31,6 +32,9 @@ export interface IStorage {
   getUserRooms(userId: string): Promise<RoomWithMembers[]>;
   getPublicRooms(): Promise<Room[]>;
   getAvailablePublicRooms(userId: string): Promise<Room[]>;
+  deleteRoom(roomId: string, userId: string): Promise<boolean>;
+  updateRoomActivity(roomId: string): Promise<void>;
+  cleanupInactiveRooms(): Promise<void>;
   
   // Room member operations
   joinRoom(roomMember: InsertRoomMember): Promise<RoomMember>;
@@ -73,6 +77,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, userId));
+  }
+
   // Room operations
   async createRoom(room: InsertRoom): Promise<Room> {
     const [newRoom] = await db.insert(rooms).values(room).returning();
@@ -105,7 +113,13 @@ export class DatabaseStorage implements IStorage {
       })
       .from(roomMembers)
       .innerJoin(rooms, eq(roomMembers.roomId, rooms.id))
-      .where(eq(roomMembers.userId, userId));
+      .where(
+        and(
+          eq(roomMembers.userId, userId),
+          // Only show private rooms if user is the creator
+          sql`${rooms.isPrivate} = false OR ${rooms.createdBy} = ${userId}`
+        )
+      );
 
     const roomsWithDetails = await Promise.all(
       userRooms.map(async ({ room }) => {
@@ -154,6 +168,44 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(rooms.isPrivate, false),
           notInArray(rooms.id, userRoomIdList)
+        )
+      );
+  }
+
+  async deleteRoom(roomId: string, userId: string): Promise<boolean> {
+    // Check if user is the creator of the room
+    const [room] = await db
+      .select()
+      .from(rooms)
+      .where(and(eq(rooms.id, roomId), eq(rooms.createdBy, userId)));
+    
+    if (!room) {
+      return false; // User is not the creator
+    }
+    
+    // Delete the room (cascade will handle members and messages)
+    await db.delete(rooms).where(eq(rooms.id, roomId));
+    return true;
+  }
+
+  async updateRoomActivity(roomId: string): Promise<void> {
+    await db
+      .update(rooms)
+      .set({ lastActivity: new Date() })
+      .where(eq(rooms.id, roomId));
+  }
+
+  async cleanupInactiveRooms(): Promise<void> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    // Delete rooms that are inactive for 30+ days and not default rooms
+    await db
+      .delete(rooms)
+      .where(
+        and(
+          eq(rooms.isDefault, false),
+          sql`${rooms.lastActivity} < ${thirtyDaysAgo}`
         )
       );
   }
@@ -222,6 +274,9 @@ export class DatabaseStorage implements IStorage {
   // Message operations
   async createMessage(message: InsertMessage): Promise<MessageWithUser> {
     const [newMessage] = await db.insert(messages).values(message).returning();
+    
+    // Update room activity when a message is sent
+    await this.updateRoomActivity(message.roomId);
     
     const messageWithUser = await db
       .select({

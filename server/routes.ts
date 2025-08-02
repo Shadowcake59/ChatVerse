@@ -225,6 +225,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Room deletion endpoint
+  app.delete('/api/rooms/:roomId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { roomId } = req.params;
+      const userId = req.user.id;
+      
+      const success = await storage.deleteRoom(roomId, userId);
+      
+      if (!success) {
+        return res.status(403).json({ message: "You can only delete rooms you created" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting room:", error);
+      res.status(500).json({ message: "Failed to delete room" });
+    }
+  });
+
+  // User account deletion endpoint
+  app.delete('/api/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await storage.deleteUser(userId);
+      
+      // Logout user after deletion
+      req.logout((err: any) => {
+        if (err) {
+          console.error("Error logging out after account deletion:", err);
+        }
+        res.json({ success: true });
+      });
+    } catch (error) {
+      console.error("Error deleting user account:", error);
+      res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // WebSocket server setup
@@ -405,6 +443,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
   });
+
+  // Setup cleanup job for inactive rooms (runs every 24 hours)
+  setInterval(async () => {
+    try {
+      await storage.cleanupInactiveRooms();
+      console.log("Cleaned up inactive rooms");
+    } catch (error) {
+      console.error("Error during room cleanup:", error);
+    }
+  }, 24 * 60 * 60 * 1000); // 24 hours
 
   return httpServer;
 }
