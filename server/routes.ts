@@ -263,6 +263,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete all users endpoint (admin only)
+  app.delete('/api/users/all', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      // Check if user is admin
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      await storage.deleteAllUsers();
+      
+      // Logout user after deletion
+      req.logout((err: any) => {
+        if (err) {
+          console.error("Error logging out after deleting all users:", err);
+        }
+        res.json({ success: true });
+      });
+    } catch (error) {
+      console.error("Error deleting all users:", error);
+      res.status(500).json({ message: "Failed to delete all users" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // WebSocket server setup

@@ -24,6 +24,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUserStatus(userId: string, status: "online" | "away" | "offline"): Promise<void>;
   deleteUser(userId: string): Promise<void>;
+  deleteAllUsers(): Promise<void>;
   
   // Room operations
   createRoom(room: InsertRoom): Promise<Room>;
@@ -78,7 +79,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(userId: string): Promise<void> {
+    // First, delete all rooms created by this user (cascade will handle members and messages)
+    await db.delete(rooms).where(eq(rooms.createdBy, userId));
+    
+    // Then delete the user
     await db.delete(users).where(eq(users.id, userId));
+  }
+
+  async deleteAllUsers(): Promise<void> {
+    // Delete all rooms first (cascade will handle members and messages)
+    await db.delete(rooms);
+    
+    // Then delete all users
+    await db.delete(users);
   }
 
   // Room operations
