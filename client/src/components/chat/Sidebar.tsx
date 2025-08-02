@@ -88,12 +88,14 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/rooms/public"] });
       toast({
         title: "Room deleted",
         description: "Room has been permanently deleted.",
       });
+      // Refresh the page after successful deletion
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000); // Small delay to show the toast
     },
     onError: (error: any) => {
       toast({
@@ -123,23 +125,7 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
     
     setIsDeleting(true);
     try {
-      // If the deleted room was selected, clear selection first
-      if (selectedRoomId === deleteRoomId) {
-        onRoomSelect(undefined);
-      }
-      
       await deleteRoomMutation.mutateAsync(deleteRoomId);
-      
-      // After successful deletion, select another room if available
-      if (selectedRoomId === deleteRoomId) {
-        const remainingRooms = userRooms.filter(r => r.id !== deleteRoomId);
-        if (remainingRooms.length > 0) {
-          // Small delay to ensure queries have updated
-          setTimeout(() => {
-            onRoomSelect(remainingRooms[0].id);
-          }, 100);
-        }
-      }
     } finally {
       setIsDeleting(false);
       setDeleteRoomId(null);
