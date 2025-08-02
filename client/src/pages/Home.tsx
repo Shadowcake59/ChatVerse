@@ -60,8 +60,8 @@ export default function Home() {
     },
   });
 
-  const handleRoomSelect = (roomId: string) => {
-    setSelectedRoomId(roomId || undefined);
+  const handleRoomSelect = (roomId: string | undefined) => {
+    setSelectedRoomId(roomId);
     setShowSidebar(false); // Hide sidebar on mobile when room is selected
   };
 

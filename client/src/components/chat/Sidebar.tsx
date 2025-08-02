@@ -40,7 +40,7 @@ import {
 
 interface SidebarProps {
   selectedRoomId?: string;
-  onRoomSelect: (roomId: string) => void;
+  onRoomSelect: (roomId: string | undefined) => void;
   className?: string;
 }
 
@@ -132,7 +132,7 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
           onRoomSelect(remainingRooms[0].id);
         } else {
           // No rooms left, clear selection
-          onRoomSelect("");
+          onRoomSelect(undefined);
         }
       }
     } finally {
