@@ -35,8 +35,9 @@ export function JoinRoomModal({ open, onOpenChange, onRoomJoined }: JoinRoomModa
         description: `Successfully created room "${room.name}"`,
       });
       
-      // Invalidate rooms query to refresh the list
+      // Invalidate both rooms queries to refresh the lists
       queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms/public"] });
       
       // Join the room
       onRoomJoined(room.id);

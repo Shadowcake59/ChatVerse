@@ -35,8 +35,8 @@ export default function Home() {
     queryKey: ["/api/rooms"],
     enabled: !!user,
     onSuccess: (rooms) => {
-      // Auto-select first room if none selected
-      if (rooms.length > 0 && !selectedRoomId) {
+      // Auto-select first room if none selected and we have rooms
+      if (rooms.length > 0 && selectedRoomId === undefined) {
         setSelectedRoomId(rooms[0].id);
       }
     },
