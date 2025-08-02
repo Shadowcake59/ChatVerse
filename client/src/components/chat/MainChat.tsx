@@ -23,7 +23,7 @@ export function MainChat({ roomId, onToggleSidebar, onToggleUsersList }: MainCha
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected");
-
+  
   const { socket, isConnected, sendMessage, messages, typingUsers } = useSocket(roomId);
 
   // Fetch room details
@@ -214,7 +214,7 @@ export function MainChat({ roomId, onToggleSidebar, onToggleUsersList }: MainCha
               )}
             </div>
           </div>
-
+          
           <div className="flex items-center space-x-2">
             <Button
               variant="ghost"

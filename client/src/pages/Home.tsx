@@ -35,8 +35,8 @@ export default function Home() {
     queryKey: ["/api/rooms"],
     enabled: !!user,
     onSuccess: (rooms) => {
-      // Auto-select first room if none selected and we have rooms
-      if (rooms.length > 0 && selectedRoomId === undefined) {
+      // Auto-select first room if none selected
+      if (rooms.length > 0 && !selectedRoomId) {
         setSelectedRoomId(rooms[0].id);
       }
     },
@@ -60,18 +60,7 @@ export default function Home() {
     },
   });
 
-  // Handle case where selected room no longer exists
-  useEffect(() => {
-    if (selectedRoomId && rooms.length > 0) {
-      const roomExists = rooms.some(room => room.id === selectedRoomId);
-      if (!roomExists) {
-        // Selected room was deleted, clear selection
-        setSelectedRoomId(undefined);
-      }
-    }
-  }, [rooms, selectedRoomId]);
-
-  const handleRoomSelect = (roomId: string | undefined) => {
+  const handleRoomSelect = (roomId: string) => {
     setSelectedRoomId(roomId);
     setShowSidebar(false); // Hide sidebar on mobile when room is selected
   };
