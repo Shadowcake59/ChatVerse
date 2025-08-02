@@ -263,6 +263,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Make user admin endpoint (development only)
+  app.post('/api/user/make-admin', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await db.update(users).set({ isAdmin: true }).where(eq(users.id, userId));
+      
+      res.json({ success: true, message: "User is now admin" });
+    } catch (error) {
+      console.error("Error making user admin:", error);
+      res.status(500).json({ message: "Failed to make user admin" });
+    }
+  });
+
   // Delete all users endpoint (admin only)
   app.delete('/api/users/all', isAuthenticated, async (req: any, res) => {
     try {
