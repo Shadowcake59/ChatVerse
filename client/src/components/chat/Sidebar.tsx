@@ -183,7 +183,7 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
             {/* Your Rooms */}
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                Your Rooms
+                Rooms
               </h3>
               <Button
                 variant="ghost"
