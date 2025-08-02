@@ -29,7 +29,7 @@ export function MainChat({ roomId, onToggleSidebar, onToggleUsersList }: MainCha
   // Fetch room details
   const { data: room } = useQuery<Room>({
     queryKey: ["/api/rooms", roomId],
-    enabled: !!roomId && roomId !== "",
+    enabled: !!roomId,
     queryFn: async () => {
       const response = await fetch(`/api/rooms/${roomId}`, {
         credentials: 'include',
@@ -62,7 +62,7 @@ export function MainChat({ roomId, onToggleSidebar, onToggleUsersList }: MainCha
   // Fetch room messages
   const { data: historyMessages = [] } = useQuery<MessageWithUser[]>({
     queryKey: ["/api/rooms", roomId, "messages"],
-    enabled: !!roomId && roomId !== "",
+    enabled: !!roomId,
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
         toast({

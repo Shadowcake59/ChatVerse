@@ -123,16 +123,21 @@ export function Sidebar({ selectedRoomId, onRoomSelect, className }: SidebarProp
     
     setIsDeleting(true);
     try {
-      await deleteRoomMutation.mutateAsync(deleteRoomId);
-      // If the deleted room was selected, clear selection
+      // If the deleted room was selected, clear selection first
       if (selectedRoomId === deleteRoomId) {
-        // Find another room to select or clear selection
+        onRoomSelect(undefined);
+      }
+      
+      await deleteRoomMutation.mutateAsync(deleteRoomId);
+      
+      // After successful deletion, select another room if available
+      if (selectedRoomId === deleteRoomId) {
         const remainingRooms = userRooms.filter(r => r.id !== deleteRoomId);
         if (remainingRooms.length > 0) {
-          onRoomSelect(remainingRooms[0].id);
-        } else {
-          // No rooms left, clear selection
-          onRoomSelect(undefined);
+          // Small delay to ensure queries have updated
+          setTimeout(() => {
+            onRoomSelect(remainingRooms[0].id);
+          }, 100);
         }
       }
     } finally {
