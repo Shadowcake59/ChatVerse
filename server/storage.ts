@@ -79,10 +79,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(userId: string): Promise<void> {
-    // First, delete all rooms created by this user (cascade will handle members and messages)
+    // First, remove user from all room memberships
+    await db.delete(roomMembers).where(eq(roomMembers.userId, userId));
+    
+    // Delete all rooms created by this user (cascade will handle members and messages)
     await db.delete(rooms).where(eq(rooms.createdBy, userId));
     
-    // Then delete the user
+    // Update any remaining messages to have null userId (system messages)
+    await db
+      .update(messages)
+      .set({ userId: null })
+      .where(eq(messages.userId, userId));
+    
+    // Finally delete the user
     await db.delete(users).where(eq(users.id, userId));
   }
 
